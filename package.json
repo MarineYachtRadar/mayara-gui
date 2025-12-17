@@ -1,6 +1,6 @@
 {
   "name": "@marineyachtradar/mayara-gui",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Web GUI for MaYaRa marine radar",
   "scripts": {
     "test": "echo 'No tests for static files'"
@@ -17,7 +17,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/marineyachtradar/mayara-gui"
+    "url": "https://github.com/MarineYachtRadar/mayara-gui"
   },
   "keywords": ["mayara", "radar", "marine", "gui", "webgpu"],
   "author": "MarineYachtRadar Contributors",
