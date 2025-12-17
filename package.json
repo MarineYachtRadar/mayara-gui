@@ -1,6 +1,6 @@
 {
   "name": "@marineyachtradar/mayara-gui",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Web GUI for MaYaRa marine radar",
   "files": [
     "*.html",
