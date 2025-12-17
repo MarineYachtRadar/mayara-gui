@@ -1,0 +1,22 @@
+{
+  "name": "@marineyachtradar/mayara-gui",
+  "version": "0.5.0",
+  "description": "Web GUI for MaYaRa marine radar",
+  "files": [
+    "*.html",
+    "*.js",
+    "*.css",
+    "*.ico",
+    "*.svg",
+    "assets/**/*",
+    "proto/**/*",
+    "protobuf/**/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marineyachtradar/mayara-gui"
+  },
+  "keywords": ["mayara", "radar", "marine", "gui", "webgpu"],
+  "author": "MarineYachtRadar Contributors",
+  "license": "MIT"
+}
