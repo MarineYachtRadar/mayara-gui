@@ -7,8 +7,8 @@
 
 // API endpoints for different modes
 const SIGNALK_RADARS_API = "/signalk/v2/api/vessels/self/radars";
-const STANDALONE_RADARS_API = "/v1/api/radars";
-const STANDALONE_INTERFACES_API = "/v1/api/interfaces";
+const STANDALONE_RADARS_API = "/v2/api/radars";
+const STANDALONE_INTERFACES_API = "/v2/api/interfaces";
 
 // Application Data API path - aligned with WASM SignalK plugin
 // Uses same path so settings are shared between standalone and SignalK modes
@@ -29,7 +29,7 @@ export async function detectMode() {
     return detectedMode;
   }
 
-  // Try standalone first - check if /v1/api/radars returns 200
+  // Try standalone first - check if /v2/api/radars returns 200
   try {
     const response = await fetch(STANDALONE_RADARS_API, { method: 'HEAD' });
     if (response.ok) {

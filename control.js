@@ -1086,8 +1086,8 @@ async function loadRadar(id) {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     let streamUrl;
     if (isStandaloneMode()) {
-      // Standalone mode: use /v1/api/radars/{id}/spokes
-      streamUrl = `${wsProtocol}//${window.location.host}/v1/api/radars/${radarId}/spokes`;
+      // Standalone mode: use /v2/api/radars/{id}/spokes
+      streamUrl = `${wsProtocol}//${window.location.host}/v2/api/radars/${radarId}/spokes`;
     } else {
       // SignalK mode: use /signalk/v2/api/vessels/self/radars/{id}/stream
       streamUrl = `${wsProtocol}//${window.location.host}/signalk/v2/api/vessels/self/radars/${radarId}/stream`;
