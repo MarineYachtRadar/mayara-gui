@@ -376,6 +376,15 @@ function radarsLoaded(d) {
       van.add(table, RadarEntry(radar));
     });
 
+    // Add recordings link (standalone mode only)
+    if (isStandaloneMode()) {
+      van.add(r, div({ class: 'myr_recordings_link' },
+        a({ href: 'recordings.html', class: 'myr_radar_link myr_radar_link_secondary' },
+          'Recordings'
+        )
+      ));
+    }
+
     // Radar found, poll less frequently
     setTimeout(loadRadars, 15000);
   } else {

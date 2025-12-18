@@ -21,3 +21,7 @@ Serve locally with any static server:
 ```bash
 npx serve .
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)

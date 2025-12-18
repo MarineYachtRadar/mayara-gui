@@ -476,3 +476,9 @@
 .myr_retry_button:hover {
   background: rgb(130, 230, 210);
 }
+
+/* Recordings link */
+.myr_recordings_link {
+  margin-top: 15px;
+  text-align: right;
+}
