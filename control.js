@@ -7,10 +7,10 @@
  * UI Design: Touch-friendly with sliders and buttons only (no dropdowns).
  */
 
-export { loadRadar, registerRadarCallback, registerControlCallback, setCurrentRange, getPowerState, getOperatingHours, hasHoursCapability };
+export { loadRadar, registerRadarCallback, registerControlCallback, setCurrentRange, getPowerState, getOperatingHours, hasHoursCapability, isPlaybackMode };
 
 import van from "./van-1.5.2.js";
-import { fetchRadarIds, fetchCapabilities, fetchState, setControl, detectMode, isStandaloneMode, saveInstallationSetting } from "./api.js";
+import { fetchRadarIds, fetchCapabilities, fetchState, setControl, detectMode, isStandaloneMode, saveInstallationSetting, isPlaybackRadar } from "./api.js";
 
 const { div, label, input, button, span } = van.tags;
 
@@ -21,6 +21,7 @@ let radarState = null;
 let statePollingInterval = null;
 let callbacks = [];
 let controlCallbacks = [];
+let playbackMode = false; // True when viewing a playback radar (controls disabled)
 
 // Current range (for viewer.js integration)
 let currentRange = 1852;
@@ -98,7 +99,15 @@ function buildControlsFromCapabilities() {
   // Set title
   if (titleEl) {
     titleEl.innerHTML = "";
-    van.add(titleEl, div(`${capabilities.make || ''} ${capabilities.model || ''} Controls`));
+    const titleText = `${capabilities.make || ''} ${capabilities.model || ''} Controls`;
+    if (playbackMode) {
+      van.add(titleEl, div({ class: "myr_title_with_badge" },
+        span(titleText),
+        span({ class: "myr_playback_badge" }, "PLAYBACK")
+      ));
+    } else {
+      van.add(titleEl, div(titleText));
+    }
   }
 
   // Clear controls
@@ -682,6 +691,12 @@ function updateRangeDisplay() {
 async function sendControlValue(controlId, value) {
   if (!radarId) return;
 
+  // Don't send control commands to playback radars
+  if (playbackMode) {
+    console.log(`Playback mode: ignoring control ${controlId}`);
+    return;
+  }
+
   console.log(`Sending control: ${controlId} = ${JSON.stringify(value)}`);
 
   // Mark as pending to prevent polling from overwriting
@@ -1063,7 +1078,8 @@ async function loadRadar(id) {
     }
 
     radarId = id;
-    console.log(`Loading radar: ${radarId}`);
+    playbackMode = isPlaybackRadar(id);
+    console.log(`Loading radar: ${radarId}${playbackMode ? ' (playback mode)' : ''}`);
 
     // Fetch capabilities
     capabilities = await fetchCapabilities(radarId);
@@ -1152,4 +1168,12 @@ function hasHoursCapability() {
     hasOnTime: controls.some(c => c.id === 'operatingHours'),
     hasTxTime: controls.some(c => c.id === 'transmitHours')
   };
+}
+
+/**
+ * Check if currently viewing a playback radar (controls are disabled)
+ * @returns {boolean} True if in playback mode
+ */
+function isPlaybackMode() {
+  return playbackMode;
 }

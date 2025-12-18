@@ -325,22 +325,303 @@ export async function saveInstallationSetting(radarId, key, value) {
   }
 }
 
+// ============================================================================
+// Playback Detection
+// ============================================================================
+
 /**
- * Send a control command to a radar via REST API (legacy format)
- *
- * SignalK Radar API format:
- *   PUT /signalk/v2/api/vessels/self/radars/{radarId}/{controlName}
- *   Body: { value: ... }
- *
- * Power endpoint expects: { value: 'off' | 'standby' | 'transmit' | 'warming' }
- * Range endpoint expects: { value: number } (meters)
- * Gain endpoint expects: { auto: boolean, value?: number }
- *
+ * Check if a radar is a playback radar (virtual radar from recording playback)
  * @param {string} radarId - The radar ID
- * @param {Object} controlData - The control data (id, value, auto, enabled)
- * @param {Object} controls - The radar controls definition to map id to name
+ * @returns {boolean} True if this is a playback radar
+ */
+export function isPlaybackRadar(radarId) {
+  return radarId && radarId.startsWith('playback-');
+}
+
+// ============================================================================
+// Recordings API
+// ============================================================================
+
+const RECORDINGS_API = "/v2/api/recordings";
+
+/**
+ * List available recordings
+ * @param {string} [subdirectory] - Optional subdirectory to list
+ * @returns {Promise<Object[]>} Array of recording info objects
+ */
+export async function listRecordings(subdirectory) {
+  const url = subdirectory
+    ? `${RECORDINGS_API}/files?dir=${encodeURIComponent(subdirectory)}`
+    : `${RECORDINGS_API}/files`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to list recordings: ${response.status}`);
+  }
+  const data = await response.json();
+  // Server returns { recordings: [...], totalCount, totalSize }
+  return data.recordings || [];
+}
+
+/**
+ * Get recording file info
+ * @param {string} filename - The recording filename
+ * @param {string} [subdirectory] - Optional subdirectory
+ * @returns {Promise<Object>} Recording info object
+ */
+export async function getRecordingInfo(filename, subdirectory) {
+  const params = subdirectory ? `?dir=${encodeURIComponent(subdirectory)}` : '';
+  const response = await fetch(`${RECORDINGS_API}/files/${encodeURIComponent(filename)}${params}`);
+  if (!response.ok) {
+    throw new Error(`Failed to get recording info: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Delete a recording
+ * @param {string} filename - The recording filename
+ * @param {string} [subdirectory] - Optional subdirectory
  * @returns {Promise<boolean>} True if successful
  */
+export async function deleteRecording(filename, subdirectory) {
+  const params = subdirectory ? `?dir=${encodeURIComponent(subdirectory)}` : '';
+  const response = await fetch(`${RECORDINGS_API}/files/${encodeURIComponent(filename)}${params}`, {
+    method: 'DELETE'
+  });
+  return response.ok;
+}
+
+/**
+ * Rename a recording file
+ * @param {string} oldFilename - Current filename
+ * @param {string} newFilename - New filename
+ * @returns {Promise<Object>} Result with new filename
+ */
+export async function renameRecording(oldFilename, newFilename) {
+  const response = await fetch(`${RECORDINGS_API}/files/${encodeURIComponent(oldFilename)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newName: newFilename })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Rename failed' }));
+    throw new Error(error.error || 'Rename failed');
+  }
+
+  // Server returns empty body on success
+  return { success: true, newFilename };
+}
+
+/**
+ * Upload a recording file (.mrr or .mrr.gz)
+ * @param {File} file - The file to upload
+ * @returns {Promise<Object>} Upload result with filename and size
+ */
+export async function uploadRecording(file) {
+  const response = await fetch(`${RECORDINGS_API}/files/upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Disposition': `attachment; filename="${file.name}"`
+    },
+    body: file
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || 'Upload failed');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Get the download URL for a recording (returns compressed .mrr.gz file)
+ * @param {string} filename - Recording filename
+ * @param {string} [subdirectory] - Optional subdirectory
+ * @returns {string} Download URL
+ */
+export function getRecordingDownloadUrl(filename, subdirectory) {
+  const params = subdirectory ? `?dir=${encodeURIComponent(subdirectory)}` : '';
+  return `${RECORDINGS_API}/files/${encodeURIComponent(filename)}/download${params}`;
+}
+
+/**
+ * Get list of radars available for recording
+ * @returns {Promise<Object[]>} Array of radar info objects
+ */
+export async function getRecordableRadars() {
+  const response = await fetch(`${RECORDINGS_API}/radars`);
+  if (!response.ok) {
+    throw new Error(`Failed to get recordable radars: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Start recording from a radar
+ * @param {string} radarId - The radar ID to record
+ * @param {string} [filename] - Optional filename (auto-generated if not provided)
+ * @param {string} [subdirectory] - Optional subdirectory
+ * @returns {Promise<Object>} Recording status
+ */
+export async function startRecording(radarId, filename, subdirectory) {
+  const body = { radarId };
+  if (filename) body.filename = filename;
+  if (subdirectory) body.subdirectory = subdirectory;
+
+  const response = await fetch(`${RECORDINGS_API}/record/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to start recording: ${error}`);
+  }
+  return response.json();
+}
+
+/**
+ * Stop the current recording
+ * @returns {Promise<Object>} Final recording status
+ */
+export async function stopRecording() {
+  const response = await fetch(`${RECORDINGS_API}/record/stop`, {
+    method: 'POST'
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to stop recording: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Get current recording status
+ * @returns {Promise<Object>} Recording status
+ */
+export async function getRecordingStatus() {
+  const response = await fetch(`${RECORDINGS_API}/record/status`);
+  if (!response.ok) {
+    throw new Error(`Failed to get recording status: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Load a recording for playback
+ * @param {string} filename - The recording filename
+ * @param {string} [subdirectory] - Optional subdirectory
+ * @returns {Promise<Object>} Playback status with radarId
+ */
+export async function loadPlayback(filename, subdirectory) {
+  const body = { filename };
+  if (subdirectory) body.subdirectory = subdirectory;
+
+  const response = await fetch(`${RECORDINGS_API}/playback/load`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to load recording: ${error}`);
+  }
+  return response.json();
+}
+
+/**
+ * Start/resume playback
+ * @returns {Promise<Object>} Playback status
+ */
+export async function playPlayback() {
+  const response = await fetch(`${RECORDINGS_API}/playback/play`, {
+    method: 'POST'
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to start playback: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Pause playback
+ * @returns {Promise<Object>} Playback status
+ */
+export async function pausePlayback() {
+  const response = await fetch(`${RECORDINGS_API}/playback/pause`, {
+    method: 'POST'
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to pause playback: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Stop playback and unload
+ * @returns {Promise<Object>} Playback status
+ */
+export async function stopPlayback() {
+  const response = await fetch(`${RECORDINGS_API}/playback/stop`, {
+    method: 'POST'
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to stop playback: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Seek to position in playback
+ * @param {number} positionMs - Position in milliseconds
+ * @returns {Promise<Object>} Playback status
+ */
+export async function seekPlayback(positionMs) {
+  const response = await fetch(`${RECORDINGS_API}/playback/seek`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ positionMs })
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to seek: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Update playback settings
+ * @param {Object} settings - Settings object { speed?, loopPlayback? }
+ * @returns {Promise<Object>} Playback status
+ */
+export async function setPlaybackSettings(settings) {
+  const response = await fetch(`${RECORDINGS_API}/playback/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings)
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to update playback settings: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Get current playback status
+ * @returns {Promise<Object>} Playback status
+ */
+export async function getPlaybackStatus() {
+  const response = await fetch(`${RECORDINGS_API}/playback/status`);
+  if (!response.ok) {
+    throw new Error(`Failed to get playback status: ${response.status}`);
+  }
+  return response.json();
+}
+
+// ============================================================================
+// Legacy Control API
+// ============================================================================
+
 export async function sendControlCommand(radarId, controlData, controls) {
   await detectMode();
 
