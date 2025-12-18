@@ -1,6 +1,6 @@
 {
   "name": "@marineyachtradar/mayara-gui",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Web GUI for MaYaRa marine radar",
   "scripts": {
     "test": "echo 'No tests for static files'"
