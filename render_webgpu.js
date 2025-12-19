@@ -22,6 +22,10 @@ class render_webgpu {
     this.lastSpokeAngle = -1;
     this.fillRotations = 4; // Number of rotations to use neighbor enhancement
 
+    // Pixel value range (16 for Navico 4-bit, 64 for Furuno 6-bit)
+    // Used to scale filtering thresholds appropriately
+    this.pixelValues = 64;
+
     // Buffer flush - wait for full rotation after standby/range change
     // This ensures we only draw fresh data, not stale buffered spokes
     this.waitForRotation = false; // True when waiting for angle wraparound
@@ -261,6 +265,12 @@ class render_webgpu {
     }
   }
 
+  setPixelValues(pixelValues) {
+    // Store pixel value range for threshold scaling in RUN mode filtering
+    // Navico uses 16 values (4-bit), Furuno uses 64 values (6-bit)
+    this.pixelValues = pixelValues || 64;
+  }
+
   #createBindGroup() {
     if (!this.polarTexture || !this.colorTexture) return;
 
@@ -442,6 +452,19 @@ class render_webgpu {
       // - Isolated weak signals (scatter) get killed
       const spokes = this.spokesPerRevolution;
 
+      // Scale thresholds based on pixel value range
+      // Base thresholds are designed for 64-value (6-bit) Furuno data
+      // Navico uses 16-value (4-bit) data, so scale proportionally
+      const scale = this.pixelValues / 64;
+      const strongThreshold = Math.floor(60 * scale);      // val > 60 for 64-bit → val > 15 for 16-bit
+      const mediumThreshold = Math.floor(25 * scale);      // val > 25 for 64-bit → val > 6 for 16-bit
+      const wideSumThreshold = Math.floor(200 * scale);    // wideSum > 200 → 50
+      const wideMaxThreshold = Math.floor(50 * scale);     // wideMax > 50 → 12
+      const narrowSumThreshold = Math.floor(80 * scale);   // narrowSum > 80 → 20
+      const narrowMaxThreshold = Math.floor(40 * scale);   // narrowMax > 40 → 10
+      const weakNarrowSum = Math.floor(100 * scale);       // narrowSum > 100 → 25
+      const weakNarrowMax = Math.floor(60 * scale);        // narrowMax > 60 → 15
+
       // Wide neighbor check for strong signals: ±4 spokes
       const prev1Offset = ((spoke.angle + spokes - 1) % spokes) * maxLen;
       const prev2Offset = ((spoke.angle + spokes - 2) % spokes) * maxLen;
@@ -474,29 +497,29 @@ class render_webgpu {
 
         let outputVal;
 
-        if (val > 60) {
+        if (val > strongThreshold) {
           // Strong signal: use wide neighbor check (±4)
-          if (wideSum > 200) {
+          if (wideSum > wideSumThreshold) {
             // Solid mass - boost hard and spread to neighbors
             outputVal = Math.min(255, Math.floor(val * 1.35));
             // Boost immediate neighbors to fill gaps
-            if (prev1 > 25) this.data[prev1Offset + i] = Math.min(255, Math.floor(prev1 * 1.15));
-            if (next1 > 25) this.data[next1Offset + i] = Math.min(255, Math.floor(next1 * 1.15));
-            if (prev2 > 25) this.data[prev2Offset + i] = Math.min(255, Math.floor(prev2 * 1.1));
-            if (next2 > 25) this.data[next2Offset + i] = Math.min(255, Math.floor(next2 * 1.1));
-          } else if (wideMax > 50) {
+            if (prev1 > mediumThreshold) this.data[prev1Offset + i] = Math.min(255, Math.floor(prev1 * 1.15));
+            if (next1 > mediumThreshold) this.data[next1Offset + i] = Math.min(255, Math.floor(next1 * 1.15));
+            if (prev2 > mediumThreshold) this.data[prev2Offset + i] = Math.min(255, Math.floor(prev2 * 1.1));
+            if (next2 > mediumThreshold) this.data[next2Offset + i] = Math.min(255, Math.floor(next2 * 1.1));
+          } else if (wideMax > wideMaxThreshold) {
             // Some support - moderate boost
             outputVal = Math.min(255, Math.floor(val * 1.2));
           } else {
             // Strong but isolated - suspicious, reduce
             outputVal = Math.floor(val * 0.8);
           }
-        } else if (val > 25) {
+        } else if (val > mediumThreshold) {
           // Medium signal: needs good neighbor support
-          if (narrowSum > 80) {
+          if (narrowSum > narrowSumThreshold) {
             // Good support - boost it
             outputVal = Math.min(255, Math.floor(val * 1.2));
-          } else if (narrowMax > 40) {
+          } else if (narrowMax > narrowMaxThreshold) {
             // Some support - keep
             outputVal = val;
           } else {
@@ -505,10 +528,10 @@ class render_webgpu {
           }
         } else if (val > 1) {
           // Weak signal: kill it unless very well supported
-          if (narrowSum > 100) {
+          if (narrowSum > weakNarrowSum) {
             // Strong neighbors - this might be edge of real target
             outputVal = val;
-          } else if (narrowMax > 60) {
+          } else if (narrowMax > weakNarrowMax) {
             // Next to something strong - keep faint
             outputVal = Math.floor(val * 0.5);
           } else {

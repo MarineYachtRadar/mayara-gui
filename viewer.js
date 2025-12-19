@@ -594,6 +594,7 @@ function radarLoaded(r) {
 
   renderer.setLegend(buildMayaraLegend(r.pixelValues));
   renderer.setSpokes(spokesPerRevolution, maxSpokeLen);
+  renderer.setPixelValues(r.pixelValues);
 
   // Check initial power state and set standby mode if needed
   const initialPowerState = getPowerState();
