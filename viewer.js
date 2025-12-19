@@ -592,7 +592,7 @@ function radarLoaded(r) {
     return;
   }
 
-  renderer.setLegend(buildMayaraLegend());
+  renderer.setLegend(buildMayaraLegend(r.pixelValues));
   renderer.setSpokes(spokesPerRevolution, maxSpokeLen);
 
   // Check initial power state and set standby mode if needed
@@ -624,8 +624,17 @@ function radarLoaded(r) {
   webSocket.onerror = (e) => {
     console.log("websocket error:", e);
   };
+  let messageCount = 0;
+  let lastLogTime = Date.now();
   webSocket.onmessage = (e) => {
     try {
+      messageCount++;
+      const now = Date.now();
+      if (now - lastLogTime > 5000) {
+        console.log(`WebSocket: received ${messageCount} messages in last 5s`);
+        messageCount = 0;
+        lastLogTime = now;
+      }
       const dataSize = e.data?.byteLength || e.data?.length || 0;
       if (dataSize === 0) {
         console.warn("WS message received with 0 bytes");
@@ -666,46 +675,63 @@ function radarLoaded(r) {
 }
 
 // Build 256-color MaYaRa palette for radar PPI display
-// Smooth color gradient: Dark Green → Green → Yellow → Red
-// Designed for 6-bit radar data (0-63 intensity values)
+// Smooth color gradient scaled to the radar's pixel value count
+// Color progression: Blue → Cyan → Green → Yellow → Red
 // This is a client-side rendering concern - not part of the radar API
-function buildMayaraLegend() {
+//
+// pixelValues: Number of distinct intensity values the radar uses
+//   - Navico/HALO: 16 (4-bit)
+//   - Furuno: 64 (6-bit)
+//   - Raymarine: varies by model
+function buildMayaraLegend(pixelValues = 64) {
   const legend = [];
+
+  // Ensure we have at least 2 values (0=transparent, 1=something)
+  if (pixelValues < 2) pixelValues = 64;
+
   for (let i = 0; i < 256; i++) {
     let r, g, b;
+
     if (i === 0) {
       // Index 0: transparent/black (noise floor)
       r = g = b = 0;
-    } else if (i <= 15) {
-      // 1-15: dark green → brighter green (weak returns)
-      const t = (i - 1) / 14;
-      r = 0;
-      g = Math.floor(50 + t * 100);
-      b = 0;
-    } else if (i <= 31) {
-      // 16-31: green → yellow-green (moderate returns)
-      const t = (i - 16) / 15;
-      r = Math.floor(t * 200);
-      g = Math.floor(150 + t * 55);
-      b = 0;
-    } else if (i <= 47) {
-      // 32-47: yellow → yellow-red (stronger returns)
-      const t = (i - 32) / 15;
-      r = Math.floor(200 + t * 55);
-      g = Math.floor(205 - t * 125);
-      b = 0;
-    } else if (i <= 63) {
-      // 48-63: red (strong returns / land)
-      const t = (i - 48) / 15;
-      r = 255;
-      g = Math.max(0, Math.floor(80 - t * 80));
-      b = 0;
+    } else if (i < pixelValues) {
+      // Map index 1 to pixelValues-1 onto 0.0 to 1.0
+      const t = (i - 1) / (pixelValues - 2);
+
+      // Color progression: Blue → Cyan → Green → Yellow → Red
+      if (t < 0.25) {
+        // Blue to Cyan (0% - 25%)
+        const local = t / 0.25;
+        r = 0;
+        g = Math.floor(85 + 170 * local);  // 85 → 255
+        b = 255;
+      } else if (t < 0.5) {
+        // Cyan to Green (25% - 50%)
+        const local = (t - 0.25) / 0.25;
+        r = 0;
+        g = 255;
+        b = Math.floor(255 * (1 - local));  // 255 → 0
+      } else if (t < 0.75) {
+        // Green to Yellow (50% - 75%)
+        const local = (t - 0.5) / 0.25;
+        r = Math.floor(255 * local);  // 0 → 255
+        g = 255;
+        b = 0;
+      } else {
+        // Yellow to Red (75% - 100%)
+        const local = (t - 0.75) / 0.25;
+        r = 255;
+        g = Math.floor(255 * (1 - local));  // 255 → 0
+        b = 0;
+      }
     } else {
-      // >63: saturated red (overflow)
+      // Beyond pixelValues: saturated red (overflow/clipping)
       r = 255;
       g = 0;
       b = 0;
     }
+
     // RGBA: alpha is 0 for index 0 (transparent), 255 for others
     legend.push([r, g, b, i === 0 ? 0 : 255]);
   }

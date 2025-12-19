@@ -1114,6 +1114,7 @@ async function loadRadar(id) {
       name: `${capabilities.make} ${capabilities.model}`,
       maxSpokeLen: chars.maxSpokeLength || 512,
       spokesPerRevolution: chars.spokesPerRevolution || 2048,
+      pixelValues: chars.pixelValues || 64,
       controls: capabilities.controls || [],
       capabilities,
       state: radarState,
