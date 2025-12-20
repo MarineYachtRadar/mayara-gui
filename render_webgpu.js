@@ -1,6 +1,6 @@
 export { render_webgpu };
 
-import { RANGE_SCALE, formatRangeValue, is_metric, getHeadingMode, getTrueHeading } from "./viewer.js";
+import { RANGE_SCALE, formatRangeValue, getHeadingMode, getTrueHeading } from "./viewer.js";
 
 class render_webgpu {
   constructor(canvas_dom, canvas_background_dom, drawBackground) {
@@ -25,6 +25,9 @@ class render_webgpu {
     // Pixel value range (16 for Navico 4-bit, 64 for Furuno 6-bit)
     // Used to scale filtering thresholds appropriately
     this.pixelValues = 64;
+
+    // Brand for range formatting (Furuno uses NM fractions, Navico uses metric at short range)
+    this.brand = "Unknown";
 
     // Buffer flush - wait for full rotation after standby/range change
     // This ensures we only draw fresh data, not stale buffered spokes
@@ -269,6 +272,44 @@ class render_webgpu {
     // Store pixel value range for threshold scaling in RUN mode filtering
     // Navico uses 16 values (4-bit), Furuno uses 64 values (6-bit)
     this.pixelValues = pixelValues || 64;
+  }
+
+  setBrand(brand) {
+    // Store brand for range formatting (Furuno uses NM fractions, Navico uses metric at short range)
+    this.brand = brand || "Unknown";
+  }
+
+  // Calculate range ring values - returns array of range values in meters
+  // Navico at short range: use nice round metric values (25, 50, 75, 100m etc)
+  // Furuno and Navico at long range: divide range into quarters (NM fractions)
+  #calculateRingValues(range) {
+    if (!range || range <= 0) {
+      return [];
+    }
+
+    // Navico uses nice metric values at short range
+    if (this.brand === "Navico" && range < 1000) {
+      // Find a nice step size that gives us ~4 rings
+      const targetStep = range / 4;
+      let step;
+      if (targetStep <= 12.5) step = 10;
+      else if (targetStep <= 30) step = 25;
+      else if (targetStep <= 60) step = 50;
+      else if (targetStep <= 125) step = 100;
+      else step = 250;
+
+      // Generate rings at nice intervals up to and including range
+      const rings = [];
+      for (let v = step; v < range - 1 && rings.length < 3; v += step) {
+        rings.push(v);
+      }
+      // Always include the actual range as outer ring
+      rings.push(Math.round(range));
+      return rings;
+    }
+
+    // Furuno and long-range Navico: divide into quarters (for NM fractions)
+    return [range / 4, range / 2, (3 * range) / 4, range];
   }
 
   #createBindGroup() {
@@ -699,20 +740,21 @@ class render_webgpu {
     ctx.fillStyle = "#00ff00";
     ctx.font = "bold 14px/1 Verdana, Geneva, sans-serif";
 
-    for (let i = 1; i <= 4; i++) {
-      const radius = (i * this.beam_length) / 4;
+    // Calculate ring positions based on brand
+    const ringValues = this.#calculateRingValues(range);
+
+    for (const ringRange of ringValues) {
+      const radius = (ringRange / range) * this.beam_length;
       ctx.beginPath();
       ctx.arc(this.center_x, this.center_y, radius, 0, 2 * Math.PI);
       ctx.stroke();
 
       // Draw range labels
-      if (range) {
-        const text = formatRangeValue(is_metric(range), (range * i) / 4);
-        // Position labels at 45 degrees (upper right)
-        const labelX = this.center_x + (radius * 0.707);
-        const labelY = this.center_y - (radius * 0.707);
-        ctx.fillText(text, labelX + 5, labelY - 5);
-      }
+      const text = formatRangeValue(this.brand, ringRange);
+      // Position labels at 45 degrees (upper right)
+      const labelX = this.center_x + (radius * 0.707);
+      const labelY = this.center_y - (radius * 0.707);
+      ctx.fillText(text, labelX + 5, labelY - 5);
     }
 
     // Draw degree markers (compass rose) around the 3rd range ring
@@ -801,8 +843,8 @@ class render_webgpu {
 
     this.background_ctx.fillStyle = "lightgreen";
     this.background_ctx.fillText("Beam length: " + this.beam_length + " px", 5, 40);
-    this.background_ctx.fillText("Display range: " + formatRangeValue(is_metric(range), range), 5, 60);
-    this.background_ctx.fillText("Radar range: " + formatRangeValue(is_metric(this.actual_range), this.actual_range), 5, 80);
+    this.background_ctx.fillText("Display range: " + formatRangeValue(this.brand, range), 5, 60);
+    this.background_ctx.fillText("Radar range: " + formatRangeValue(this.brand, this.actual_range), 5, 80);
     this.background_ctx.fillText("Spoke length: " + (this.max_spoke_len || 0) + " px", 5, 100);
   }
 }

@@ -1,6 +1,6 @@
 "use strict";
 
-export { RANGE_SCALE, formatRangeValue, is_metric, getHeadingMode, getTrueHeading };
+export { RANGE_SCALE, formatRangeValue, getHeadingMode, getTrueHeading };
 
 import {
   loadRadar,
@@ -26,57 +26,57 @@ var noTransmitAngles = Array();
 var headingMode = "headingUp";
 var trueHeading = 0; // in radians
 
-function divides_near(a, b) {
-  let remainder = a % b;
-  let r = remainder <= 1.0 || remainder >= b - 1;
-  return r;
-}
-
-function is_metric(v) {
-  if (v <= 100) {
-    return divides_near(v, 25);
-  } else if (v <= 750) {
-    return divides_near(v, 50);
-  }
-  return divides_near(v, 500);
-}
-
 const NAUTICAL_MILE = 1852.0;
 
-function formatRangeValue(metric, v) {
-  if (metric) {
-    // Metric
-    v = Math.round(v);
-    if (v >= 1000) {
-      return v / 1000 + " km";
-    } else {
-      return v + " m";
-    }
+function formatRangeValue(brand, v) {
+  v = Math.round(v);
+
+  // Furuno uses NM fractions even at short range
+  if (brand === "Furuno") {
+    return formatRangeNautical(v);
+  }
+
+  // Navico and others: use meters for short range, nm for long range
+  if (v < 1000) {
+    return v + " m";
   } else {
-    if (v >= NAUTICAL_MILE - 1) {
-      if (divides_near(v, NAUTICAL_MILE)) {
-        return Math.floor((v + 1) / NAUTICAL_MILE) + " nm";
-      } else {
-        return v / NAUTICAL_MILE + " nm";
-      }
-    } else if (divides_near(v, NAUTICAL_MILE / 2)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 2)) + "/2 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 4)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 4)) + "/4 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 8)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 8)) + "/8 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 16)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 16)) + "/16 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 32)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 32)) + "/32 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 64)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 64)) + "/64 nm";
-    } else if (divides_near(v, NAUTICAL_MILE / 128)) {
-      return Math.floor((v + 1) / (NAUTICAL_MILE / 128)) + "/128 nm";
+    return formatRangeNautical(v);
+  }
+}
+
+function formatRangeNautical(v) {
+  if (v >= NAUTICAL_MILE) {
+    // >= 1 nm: show in nautical miles
+    const nm = v / NAUTICAL_MILE;
+    if (nm >= 10) {
+      return Math.round(nm) + " nm";
     } else {
-      return v / NAUTICAL_MILE + " nm";
+      // Show 1 decimal for values like 1.5 nm
+      const rounded = Math.round(nm * 2) / 2; // Round to nearest 0.5
+      if (rounded === Math.floor(rounded)) {
+        return rounded + " nm";
+      } else {
+        return rounded.toFixed(1) + " nm";
+      }
     }
   }
+
+  // < 1 nm: find the best fraction n/d where d is power of 2
+  const denominators = [128, 64, 32, 16, 8, 4, 2];
+
+  for (const denom of denominators) {
+    const fraction = NAUTICAL_MILE / denom;
+    const numerator = Math.round(v / fraction);
+    const error = Math.abs(v - numerator * fraction);
+
+    // Accept if error is < 10% of the fraction size
+    if (error < fraction * 0.10 && numerator > 0) {
+      return numerator + "/" + denom + " nm";
+    }
+  }
+
+  // Fallback to decimal
+  return (v / NAUTICAL_MILE).toFixed(2) + " nm";
 }
 
 const RANGE_SCALE = 0.9; // Factor by which we fill the (w,h) canvas with the outer radar range ring
@@ -595,6 +595,7 @@ function radarLoaded(r) {
   renderer.setLegend(buildMayaraLegend(r.pixelValues));
   renderer.setSpokes(spokesPerRevolution, maxSpokeLen);
   renderer.setPixelValues(r.pixelValues);
+  renderer.setBrand(r.brand);
 
   // Check initial power state and set standby mode if needed
   const initialPowerState = getPowerState();

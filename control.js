@@ -1112,6 +1112,7 @@ async function loadRadar(id) {
     callbacks.forEach(cb => cb({
       id: radarId,
       name: `${capabilities.make} ${capabilities.model}`,
+      brand: capabilities.make,
       maxSpokeLen: chars.maxSpokeLength || 512,
       spokesPerRevolution: chars.spokesPerRevolution || 2048,
       pixelValues: chars.pixelValues || 64,
