@@ -28,19 +28,67 @@ var trueHeading = 0; // in radians
 
 const NAUTICAL_MILE = 1852.0;
 
+// Original heuristic functions from main branch - used for non-Navico brands
+function divides_near(a, b) {
+  let remainder = a % b;
+  return remainder <= 1.0 || remainder >= b - 1;
+}
+
+function is_metric(v) {
+  if (v <= 100) {
+    return divides_near(v, 25);
+  } else if (v <= 750) {
+    return divides_near(v, 50);
+  }
+  return divides_near(v, 500);
+}
+
 function formatRangeValue(brand, v) {
   v = Math.round(v);
 
-  // Furuno uses NM fractions even at short range
-  if (brand === "Furuno") {
-    return formatRangeNautical(v);
+  // NAVICO ONLY: use meters for short range (<1000m), NM for long range
+  if (brand === "Navico") {
+    if (v < 1000) {
+      return v + " m";
+    } else {
+      return formatRangeNautical(v);
+    }
   }
 
-  // Navico and others: use meters for short range, nm for long range
-  if (v < 1000) {
-    return v + " m";
+  // ALL OTHER BRANDS (Furuno, Raymarine, Garmin, Unknown):
+  // Use EXACT original main branch formatting logic
+  if (is_metric(v)) {
+    // Metric
+    if (v >= 1000) {
+      return v / 1000 + " km";
+    } else {
+      return v + " m";
+    }
   } else {
-    return formatRangeNautical(v);
+    // Nautical - original divides_near logic from main branch
+    if (v >= NAUTICAL_MILE - 1) {
+      if (divides_near(v, NAUTICAL_MILE)) {
+        return Math.floor((v + 1) / NAUTICAL_MILE) + " nm";
+      } else {
+        return v / NAUTICAL_MILE + " nm";
+      }
+    } else if (divides_near(v, NAUTICAL_MILE / 2)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 2)) + "/2 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 4)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 4)) + "/4 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 8)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 8)) + "/8 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 16)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 16)) + "/16 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 32)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 32)) + "/32 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 64)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 64)) + "/64 nm";
+    } else if (divides_near(v, NAUTICAL_MILE / 128)) {
+      return Math.floor((v + 1) / (NAUTICAL_MILE / 128)) + "/128 nm";
+    } else {
+      return v / NAUTICAL_MILE + " nm";
+    }
   }
 }
 

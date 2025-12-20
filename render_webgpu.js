@@ -280,14 +280,14 @@ class render_webgpu {
   }
 
   // Calculate range ring values - returns array of range values in meters
-  // Navico at short range: use nice round metric values (25, 50, 75, 100m etc)
-  // Furuno and Navico at long range: divide range into quarters (NM fractions)
+  // NAVICO ONLY at short range: use nice round metric values (25, 50, 75, 100m etc)
+  // ALL OTHER BRANDS: divide range into quarters (original main branch behavior)
   #calculateRingValues(range) {
     if (!range || range <= 0) {
       return [];
     }
 
-    // Navico uses nice metric values at short range
+    // NAVICO ONLY: nice metric values at short range
     if (this.brand === "Navico" && range < 1000) {
       // Find a nice step size that gives us ~4 rings
       const targetStep = range / 4;
@@ -308,7 +308,7 @@ class render_webgpu {
       return rings;
     }
 
-    // Furuno and long-range Navico: divide into quarters (for NM fractions)
+    // ALL OTHER BRANDS: divide into quarters (original main branch behavior)
     return [range / 4, range / 2, (3 * range) / 4, range];
   }
 
@@ -493,10 +493,9 @@ class render_webgpu {
       // - Isolated weak signals (scatter) get killed
       const spokes = this.spokesPerRevolution;
 
-      // Scale thresholds based on pixel value range
-      // Base thresholds are designed for 64-value (6-bit) Furuno data
-      // Navico uses 16-value (4-bit) data, so scale proportionally
-      const scale = this.pixelValues / 64;
+      // Scale thresholds ONLY for Navico (4-bit data)
+      // All other brands use original thresholds (designed for 64-value data)
+      const scale = (this.brand === "Navico") ? (this.pixelValues / 64) : 1.0;
       const strongThreshold = Math.floor(60 * scale);      // val > 60 for 64-bit → val > 15 for 16-bit
       const mediumThreshold = Math.floor(25 * scale);      // val > 25 for 64-bit → val > 6 for 16-bit
       const wideSumThreshold = Math.floor(200 * scale);    // wideSum > 200 → 50
