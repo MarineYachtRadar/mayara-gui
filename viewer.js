@@ -15,6 +15,7 @@ import { isStandaloneMode, detectMode } from "./api.js";
 import "./protobuf/protobuf.min.js";
 
 import { render_webgpu } from "./render_webgpu.js";
+import { initDebugPanel } from "./debug-panel.js";
 
 var webSocket;
 var headingSocket;
@@ -189,6 +190,9 @@ window.onload = async function () {
 
   // Create heading mode toggle button
   createHeadingModeToggle();
+
+  // Initialize debug panel if server is in dev mode
+  initDebugPanel();
 
   window.onresize = function () {
     renderer.redrawCanvas();
