@@ -649,10 +649,12 @@ function radarLoaded(r) {
   renderer.setPixelValues(r.pixelValues);
   renderer.setBrand(r.brand);
 
-  // Check initial power state and set standby mode if needed
+  // Check initial power state and set standby mode if needed.
+  // Note: "off" means the radar hasn't reported status yet (default state),
+  // so we don't show standby overlay for "off" - we wait for actual status.
+  // Only show standby overlay if power is explicitly "standby".
   const initialPowerState = getPowerState();
-  const isStandby = initialPowerState === 'standby' || initialPowerState === 'off';
-  if (isStandby) {
+  if (initialPowerState === 'standby') {
     const hours = getOperatingHours();
     const hoursCap = hasHoursCapability();
     renderer.setStandbyMode(true, hours.onTime, hours.txTime, hoursCap.hasOnTime, hoursCap.hasTxTime);

@@ -266,7 +266,9 @@ function buildControl(control) {
  * Power control - special Transmit/Standby buttons
  */
 function buildPowerControl(control) {
-  const currentValue = getControlValue('power') || 'standby';
+  const rawValue = getControlValue('power');
+  // Treat 'off' (default when no status received) as 'standby' for display
+  const currentValue = rawValue === 'off' ? 'standby' : (rawValue || 'standby');
 
   return div({ class: "myr_power_buttons" },
     button({
@@ -796,11 +798,14 @@ function updatePowerUI(value) {
   const transmitBtn = document.querySelector('.myr_power_button_transmit');
   const standbyBtn = document.querySelector('.myr_power_button_standby');
 
+  // Treat 'off' as 'standby' for UI display purposes
+  const displayValue = value === 'off' ? 'standby' : value;
+
   if (transmitBtn) {
-    transmitBtn.classList.toggle('myr_power_active', value === 'transmit');
+    transmitBtn.classList.toggle('myr_power_active', displayValue === 'transmit');
   }
   if (standbyBtn) {
-    standbyBtn.classList.toggle('myr_power_active', value === 'standby');
+    standbyBtn.classList.toggle('myr_power_active', displayValue === 'standby');
   }
 }
 

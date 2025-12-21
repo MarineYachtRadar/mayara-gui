@@ -99,9 +99,11 @@ function connectWebSocket() {
  * Handle incoming WebSocket messages
  */
 function handleWebSocketMessage(message) {
+  console.log('Debug: Received message', message.type, message);
   switch (message.type) {
     case 'connected':
       eventCount = message.eventCount || 0;
+      console.log('Debug: Connected, event count:', eventCount);
       updateStats();
       break;
 
@@ -112,6 +114,7 @@ function handleWebSocketMessage(message) {
       break;
 
     case 'history':
+      console.log('Debug: Got history with', message.events?.length || 0, 'events');
       if (message.events) {
         events = message.events;
         updateTimeline(events, filterText, filterRadar, filterType);
