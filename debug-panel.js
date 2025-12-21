@@ -117,6 +117,17 @@ function handleWebSocketMessage(message) {
       console.log('Debug: Got history with', message.events?.length || 0, 'events');
       if (message.events) {
         events = message.events;
+        // Extract radar info from history events
+        for (const event of events) {
+          if (event.radarId && !radars.has(event.radarId)) {
+            radars.set(event.radarId, {
+              radar_id: event.radarId,
+              brand: event.brand || 'unknown',
+              connection_state: 'connected'
+            });
+          }
+        }
+        updateRadarCards();
         updateTimeline(events, filterText, filterRadar, filterType);
         updateStats();
       }
