@@ -295,8 +295,9 @@ function updateStats() {
   const statsEl = panelElement?.querySelector('.debug-stats');
   if (!statsEl) return;
 
-  const dataEvents = events.filter(e => e.type === 'data').length;
-  const stateEvents = events.filter(e => e.type === 'stateChange').length;
+  // Use eventType field (renamed from type to avoid conflict with WebSocket message type)
+  const dataEvents = events.filter(e => e.eventType === 'data').length;
+  const stateEvents = events.filter(e => e.eventType === 'stateChange').length;
   const unknownEvents = events.filter(e => e.decoded?.brand === 'unknown').length;
 
   statsEl.innerHTML = `
@@ -340,7 +341,7 @@ function handleEventClick(eventId) {
   const event = events.find(e => e.id === eventId);
   if (!event) return;
 
-  if (event.type === 'stateChange') {
+  if (event.eventType === 'stateChange') {
     showTab('state');
     showStateDiff(event);
   } else {

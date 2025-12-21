@@ -239,7 +239,7 @@ function getChangeDescription(controlId, before, after, changeType) {
 export function showStateDiff(event) {
   if (!containerElement) return;
 
-  if (event.type !== 'stateChange') {
+  if (event.eventType !== 'stateChange') {
     // Not a state change event
     const content = containerElement.querySelector('.debug-detail-content');
     if (content) {
@@ -247,7 +247,7 @@ export function showStateDiff(event) {
         <div class="state-placeholder">
           This event is not a state change.
           <div style="margin-top: 8px; font-size: 11px; color: #666;">
-            Event type: ${event.type || 'unknown'}
+            Event type: ${event.eventType || 'unknown'}
           </div>
         </div>
       `;

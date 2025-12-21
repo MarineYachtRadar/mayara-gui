@@ -62,7 +62,8 @@ function formatTime(timestamp) {
  * Get badge info for event type
  */
 function getBadgeInfo(event) {
-  if (event.type === 'data') {
+  // Use eventType field (renamed from type to avoid conflict with WebSocket message type)
+  if (event.eventType === 'data') {
     const isUnknown = event.decoded?.brand === 'unknown';
     if (isUnknown) {
       return { class: 'unknown', label: 'UNK' };
@@ -72,11 +73,11 @@ function getBadgeInfo(event) {
       : { class: 'recv', label: 'RECV' };
   }
 
-  if (event.type === 'socketOp') {
+  if (event.eventType === 'socketOp') {
     return { class: 'socket', label: 'SOCK' };
   }
 
-  if (event.type === 'stateChange') {
+  if (event.eventType === 'stateChange') {
     return { class: 'state', label: 'STATE' };
   }
 
@@ -87,7 +88,7 @@ function getBadgeInfo(event) {
  * Get summary text for an event
  */
 function getEventSummary(event) {
-  if (event.type === 'data') {
+  if (event.eventType === 'data') {
     const decoded = event.decoded;
 
     if (decoded && decoded.brand !== 'unknown') {
@@ -118,7 +119,7 @@ function getEventSummary(event) {
     return `${event.length || 0} bytes`;
   }
 
-  if (event.type === 'socketOp') {
+  if (event.eventType === 'socketOp') {
     const op = event.operation;
     if (!op) return 'Socket operation';
 
@@ -140,7 +141,7 @@ function getEventSummary(event) {
     }
   }
 
-  if (event.type === 'stateChange') {
+  if (event.eventType === 'stateChange') {
     const controlId = event.controlId || event.control_id || 'unknown';
     const before = formatValue(event.before);
     const after = formatValue(event.after);
@@ -215,9 +216,9 @@ function filterEvents(events, filterText, filterRadar, filterType) {
       if (radarId !== filterRadar) return false;
     }
 
-    // Filter by type
+    // Filter by event type (using eventType field)
     if (filterType !== 'all') {
-      if (event.type !== filterType) return false;
+      if (event.eventType !== filterType) return false;
     }
 
     // Filter by text

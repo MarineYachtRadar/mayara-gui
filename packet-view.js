@@ -345,8 +345,8 @@ export function showPacketDetails(event) {
     meta.textContent = `${brand} | ${radarId} | ${timestamp}ms`;
   }
 
-  // Handle different event types
-  if (event.type === 'data') {
+  // Handle different event types (using eventType field)
+  if (event.eventType === 'data') {
     const hexString = event.rawHex || event.raw_hex || '';
     const asciiString = event.rawAscii || event.raw_ascii || '';
     const decoded = event.decoded;
@@ -365,12 +365,12 @@ export function showPacketDetails(event) {
       ${renderHexDump(hexString, asciiString)}
       ${renderDecodedFields(decoded)}
     `;
-  } else if (event.type === 'socketOp') {
+  } else if (event.eventType === 'socketOp') {
     content.innerHTML = renderSocketOp(event);
   } else {
     content.innerHTML = `
       <div class="packet-placeholder">
-        Event type: ${event.type || 'unknown'}
+        Event type: ${event.eventType || 'unknown'}
         <pre style="margin-top: 12px; font-size: 10px;">${escapeHtml(JSON.stringify(event, null, 2))}</pre>
       </div>
     `;
