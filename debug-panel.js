@@ -289,6 +289,32 @@ function updateRadarCards() {
 
     container.appendChild(card);
   }
+
+  // Update radar filter dropdown
+  updateRadarFilterDropdown();
+}
+
+function updateRadarFilterDropdown() {
+  const select = panelElement?.querySelector('.debug-filter-radar');
+  if (!select) return;
+
+  // Remember current selection
+  const currentValue = select.value;
+
+  // Rebuild options
+  select.innerHTML = '<option value="all">All Radars</option>';
+
+  for (const [id, radar] of radars) {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = `${radar.brand} - ${id}`;
+    select.appendChild(option);
+  }
+
+  // Restore selection if still valid
+  if (currentValue !== 'all' && radars.has(currentValue)) {
+    select.value = currentValue;
+  }
 }
 
 function updateStats() {
@@ -421,6 +447,7 @@ export function createDebugPanel() {
         <option value="data">Data</option>
         <option value="socketOp">Socket Ops</option>
         <option value="stateChange">State Changes</option>
+        <option value="unknown">Unknown Only</option>
       </select>
     </div>
 

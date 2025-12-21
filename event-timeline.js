@@ -218,7 +218,12 @@ function filterEvents(events, filterText, filterRadar, filterType) {
 
     // Filter by event type (using eventType field)
     if (filterType !== 'all') {
-      if (event.eventType !== filterType) return false;
+      if (filterType === 'unknown') {
+        // Special filter: show only unknown/unparseable messages
+        if (event.decoded?.brand !== 'unknown') return false;
+      } else {
+        if (event.eventType !== filterType) return false;
+      }
     }
 
     // Filter by text
