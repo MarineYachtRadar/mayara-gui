@@ -15,6 +15,7 @@ import { isStandaloneMode, detectMode } from "./api.js";
 import "./protobuf/protobuf.min.js";
 
 import { render_webgpu } from "./render_webgpu.js";
+import { initDebugPanel } from "./debug-panel.js";
 
 var webSocket;
 var headingSocket;
@@ -189,6 +190,9 @@ window.onload = async function () {
 
   // Create heading mode toggle button
   createHeadingModeToggle();
+
+  // Initialize debug panel if server is in dev mode
+  initDebugPanel();
 
   window.onresize = function () {
     renderer.redrawCanvas();
@@ -645,10 +649,12 @@ function radarLoaded(r) {
   renderer.setPixelValues(r.pixelValues);
   renderer.setBrand(r.brand);
 
-  // Check initial power state and set standby mode if needed
+  // Check initial power state and set standby mode if needed.
+  // Note: "off" means the radar hasn't reported status yet (default state),
+  // so we don't show standby overlay for "off" - we wait for actual status.
+  // Only show standby overlay if power is explicitly "standby".
   const initialPowerState = getPowerState();
-  const isStandby = initialPowerState === 'standby' || initialPowerState === 'off';
-  if (isStandby) {
+  if (initialPowerState === 'standby') {
     const hours = getOperatingHours();
     const hoursCap = hasHoursCapability();
     renderer.setStandbyMode(true, hours.onTime, hours.txTime, hoursCap.hasOnTime, hoursCap.hasTxTime);
